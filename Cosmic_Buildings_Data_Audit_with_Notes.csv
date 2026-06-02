@@ -1,0 +1,15 @@
+Category,Data Stream,Security,Nexus_Hestia_Role,Notes
+Business Protocols,Client Contracts & PII,Hardened Cloud,Intention,Active: Core project driver.
+Business Protocols,Permitting & Zoning,Hardened Cloud,Constraint,Active: External API integration.
+Business Protocols,Material Ledger,Hardened Cloud,Resource,Unused Column: Need to link to ERP first.
+Design & Engineering,BIM Geometry (IFC),Air-gapped Server,Blueprint,Active: Source of Truth.
+Design & Engineering,Generative Layout Params,Air-gapped Server,Arbitration,Proxied: Currently manual verification needed.
+Design & Engineering,Structural Sim Data,Air-gapped Server,Validation,Unused Column: Simulation engine pending.
+Manufacturing (Nexus),Robot Joint States,Air-gapped / Edge,Execution,Active: High-freq ROS2 stream.
+Manufacturing (Nexus),Behavior Tree Logs,Air-gapped / Edge,Orchestration,Active: Sequential logic logs.
+Manufacturing (Nexus),Energy Usage/Torque,Air-gapped / Edge,Observation,Proxied: Visualized via Hestia Dashboard.
+Multimodal Sensing,RGB-D Vision,Air-gapped Server,Observation,Active: Foundation for Hestia state audit.
+Multimodal Sensing,Lidar Point Clouds,Air-gapped Server,Spatial Truth,Active: Reconstructing as-built scene.
+Multimodal Sensing,Thermal/Radiometric,Air-gapped Server,Validation,Unused: Hardware deployment in Phase 2.
+Multimodal Sensing,Acoustic Emissions,Air-gapped Server,Safety,Potential Proxy: For tool wear detection.
+Compliance,As-Built Audit Logs,Hardened Cloud,Verification,Active: Final report for LA City Inspectors.
