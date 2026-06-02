@@ -49,14 +49,18 @@ ALTER TABLE users         ENABLE ROW LEVEL SECURITY;
 -- These policies are for any direct Supabase client access.
 
 -- Allow service role full access (FastAPI uses service role key)
+DROP POLICY IF EXISTS "service_role_stream_checks" ON stream_checks;
 CREATE POLICY "service_role_stream_checks" ON stream_checks
   FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "service_role_audit_log" ON audit_log;
 CREATE POLICY "service_role_audit_log" ON audit_log
   FOR ALL USING (auth.role() = 'service_role');
 
+DROP POLICY IF EXISTS "service_role_users" ON users;
 CREATE POLICY "service_role_users" ON users
   FOR ALL USING (auth.role() = 'service_role');
+
 
 -- ── INDEXES ───────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_stream_checks_domain   ON stream_checks(domain_id);
