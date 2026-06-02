@@ -4,8 +4,12 @@
 -- Run this in: Supabase Dashboard → SQL Editor → New Query
 -- ============================================================
 
+-- Clean slate reset (drops old tables and all associated policies)
+DROP TABLE IF EXISTS stream_checks, audit_log, users CASCADE;
+
 -- ── STREAM CHECKS ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS stream_checks (
+
   id               BIGSERIAL PRIMARY KEY,
   stream_id        TEXT UNIQUE NOT NULL,       -- e.g. "d1_0", "d3_4"
   stream_text      TEXT NOT NULL,              -- human-readable stream name
