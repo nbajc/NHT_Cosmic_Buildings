@@ -24,8 +24,10 @@ app.add_middleware(
 )
 
 def get_supabase() -> Client:
-    url = os.environ["SUPABASE_URL"]
-    key = os.environ["SUPABASE_KEY"]
+    url = os.environ["SUPABASE_URL"].strip().rstrip("/")
+    if url.endswith("/rest/v1"):
+        url = url[:-8]
+    key = os.environ["SUPABASE_KEY"].strip()
     return create_client(url, key)
 
 ADMIN_EMAILS = [
