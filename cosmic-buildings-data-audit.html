@@ -465,81 +465,105 @@ checkApiHealth();
 
 // ── ACCESS ────────────────────────────────────────────────────────────────────
 async function tryAccess() {
-  const email = document.getElementById('gate-email').value.trim().toLowerCase();
-  const errEl = document.getElementById('gate-err');
-  if(!email) { errEl.textContent='Enter your email to continue.'; return; }
+  try {
+    const email = document.getElementById('gate-email').value.trim().toLowerCase();
+    const errEl = document.getElementById('gate-err');
+    if(!email) { errEl.textContent='Enter your email to continue.'; return; }
 
-  let granted = false;
-  let role = 'viewer';
+    let granted = false;
+    let role = 'viewer';
 
-  if(apiOnline) {
-    const res = await api('POST','/access/check',{email});
-    if(res && res.granted) { granted=true; role=res.role; }
-    else if(res) { errEl.textContent = res.message || 'Access denied.'; return; }
-    else {
-      // API offline fallback
+    if(apiOnline) {
+      const res = await api('POST','/access/check',{email});
+      if(res && res.granted) { granted=true; role=res.role; }
+      else if(res) { errEl.textContent = res.message || 'Access denied.'; return; }
+      else {
+        // API offline fallback
+        if(PRE_APPROVED.includes(email)) { granted=true; role=ADMIN_EMAILS.includes(email)?'admin':'viewer'; }
+      }
+    } else {
       if(PRE_APPROVED.includes(email)) { granted=true; role=ADMIN_EMAILS.includes(email)?'admin':'viewer'; }
-    }
-  } else {
-    if(PRE_APPROVED.includes(email)) { granted=true; role=ADMIN_EMAILS.includes(email)?'admin':'viewer'; }
-    else { errEl.textContent='Access denied. Request invite from natasha.bajc@nexushestia.com'; return; }
-  }
-
-  if(granted) {
-    currentUser = email;
-    currentRole = role;
-    document.getElementById('access-gate').style.display='none';
-    document.getElementById('user-bar').style.display='flex';
-    document.getElementById('main-content').style.display='flex';
-    document.getElementById('ub-email').textContent=email;
-    
-    const clearLogBtn = document.getElementById('clear-log-btn');
-    if (clearLogBtn) {
-      clearLogBtn.style.display = ADMIN_EMAILS.includes(currentUser) ? 'inline-block' : 'none';
+      else { errEl.textContent='Access denied. Request invite from natasha.bajc@nexushestia.com'; return; }
     }
 
-    await loadFromAPI();
-    renderAll();
-    
-    if (!syncInterval) {
-      syncInterval = setInterval(syncData, 5000);
+    if(granted) {
+      currentUser = email;
+      currentRole = role;
+      document.getElementById('access-gate').style.display='none';
+      document.getElementById('user-bar').style.display='flex';
+      document.getElementById('main-content').style.display='flex';
+      document.getElementById('ub-email').textContent=email;
+      
+      const clearLogBtn = document.getElementById('clear-log-btn');
+      if (clearLogBtn) {
+        clearLogBtn.style.display = ADMIN_EMAILS.includes(currentUser) ? 'inline-block' : 'none';
+      }
+
+      await loadFromAPI();
+      renderAll();
+      
+      if (!syncInterval) {
+        syncInterval = setInterval(syncData, 5000);
+      }
     }
+  } catch (err) {
+    console.error("tryAccess error:", err);
+    document.getElementById('gate-err').textContent = 'An unexpected error occurred. Please try again.';
   }
 }
 
 async function loadFromAPI() {
-  if(!apiOnline) return;
-  const [streamsRes, auditRes] = await Promise.all([
-    api('GET','/streams'),
-    api('GET','/audit?limit=50'),
-  ]);
-  if(streamsRes?.streams) {
-    checks = {};
-    streamsRes.streams.forEach(s => {
-      checks[s.stream_id] = {
-        name: s.checked_by_name,
-        email: s.checked_by_email,
-        pct: s.completion_pct,
-        ts: new Date(s.updated_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
-      };
-    });
-  }
-  if(auditRes?.log) {
-    auditLog = auditRes.log.map(e => ({
-      type: e.action,
-      email: e.actor_email,
-      detail: e.detail,
-      stream_id: e.stream_id,
-      pct: e.completion_pct,
-      ts: new Date(e.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
-    }));
-  }
-  if(ADMIN_EMAILS.includes(currentUser)) {
-    const usersRes = await api('GET',`/users?admin_email=${encodeURIComponent(currentUser)}`);
-    if(usersRes?.users) {
-      pendingUsers = usersRes.users.filter(u=>!u.approved);
-      approvedUsers = usersRes.users.filter(u=>u.approved);
+  try {
+    if(!apiOnline) return;
+    const [streamsRes, auditRes] = await Promise.all([
+      api('GET','/streams'),
+      api('GET','/audit?limit=50'),
+    ]);
+    if(streamsRes?.streams) {
+      checks = {};
+      streamsRes.streams.forEach(s => {
+        let ts = '';
+        try {
+          ts = new Date(s.updated_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        } catch (e) {
+          ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        }
+        checks[s.stream_id] = {
+          name: s.checked_by_name,
+          email: s.checked_by_email,
+          pct: s.completion_pct,
+          ts: ts
+        };
+      });
     }
+    if(auditRes?.log) {
+      auditLog = [];
+      auditRes.log.forEach(e => {
+        let ts = '';
+        try {
+          ts = new Date(e.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        } catch (err) {
+          ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        }
+        auditLog.push({
+          type: e.action,
+          email: e.actor_email,
+          detail: e.detail,
+          stream_id: e.stream_id,
+          pct: e.completion_pct,
+          ts: ts
+        });
+      });
+    }
+    if(ADMIN_EMAILS.includes(currentUser)) {
+      const usersRes = await api('GET',`/users?admin_email=${encodeURIComponent(currentUser)}`);
+      if(usersRes?.users) {
+        pendingUsers = usersRes.users.filter(u=>!u.approved);
+        approvedUsers = usersRes.users.filter(u=>u.approved);
+      }
+    }
+  } catch (err) {
+    console.error("loadFromAPI error:", err);
   }
 }
 
@@ -627,47 +651,69 @@ function onCheck(e,domId,idx,text) {
 }
 
 async function confirmCheck() {
-  const name = document.getElementById('popup-name').value.trim()||currentUser;
-  const pct = parseInt(document.getElementById('popup-pct').value)||100;
-  const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  const {sid,text,domId} = popupTarget;
-  checks[sid]={name,email:currentUser,pct,ts};
-  if(apiOnline) {
-    await api('POST','/streams/check',{
-      stream_id:sid, stream_text:text, domain_id:domId,
-      checked:true, checked_by_email:currentUser, checked_by_name:name, completion_pct:pct
-    });
-    await refreshAudit();
-  } else {
-    auditLog.unshift({type:'stream_checked',email:currentUser,detail:`Checked: ${text}`,pct,ts});
+  try {
+    const name = document.getElementById('popup-name').value.trim()||currentUser;
+    const pct = parseInt(document.getElementById('popup-pct').value)||100;
+    const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const {sid,text,domId} = popupTarget;
+    checks[sid]={name,email:currentUser,pct,ts};
+    if(apiOnline) {
+      await api('POST','/streams/check',{
+        stream_id:sid, stream_text:text, domain_id:domId,
+        checked:true, checked_by_email:currentUser, checked_by_name:name, completion_pct:pct
+      });
+      await refreshAudit();
+    } else {
+      auditLog.unshift({type:'stream_checked',email:currentUser,detail:`Checked: ${text}`,pct,ts});
+    }
+  } catch (err) {
+    console.error("confirmCheck error:", err);
+  } finally {
+    closePopup(); renderDomains(); updateStats(); renderAuditLog();
   }
-  closePopup(); renderDomains(); updateStats(); renderAuditLog();
 }
 
 async function confirmUncheck() {
-  const {sid,text} = popupTarget;
-  const name = checks[sid]?.name||currentUser;
-  const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  delete checks[sid];
-  if(apiOnline) {
-    await api('DELETE',`/streams/${sid}?email=${encodeURIComponent(currentUser)}&name=${encodeURIComponent(name)}`);
-    await refreshAudit();
-  } else {
-    auditLog.unshift({type:'stream_unchecked',email:currentUser,detail:`Unchecked: ${text}`,ts});
+  try {
+    const {sid,text} = popupTarget;
+    const name = checks[sid]?.name||currentUser;
+    const ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    delete checks[sid];
+    if(apiOnline) {
+      await api('DELETE',`/streams/${sid}?email=${encodeURIComponent(currentUser)}&name=${encodeURIComponent(name)}`);
+      await refreshAudit();
+    } else {
+      auditLog.unshift({type:'stream_unchecked',email:currentUser,detail:`Unchecked: ${text}`,ts});
+    }
+  } catch (err) {
+    console.error("confirmUncheck error:", err);
+  } finally {
+    closePopup(); renderDomains(); updateStats(); renderAuditLog();
   }
-  closePopup(); renderDomains(); updateStats(); renderAuditLog();
 }
 
 function closePopup() { document.getElementById('popup').style.display='none'; popupTarget=null; }
 
 async function refreshAudit() {
-  const res = await api('GET','/audit?limit=50');
-  if(res?.log) {
-    auditLog = res.log.map(e=>({
-      type:e.action, email:e.actor_email, detail:e.detail, pct:e.completion_pct,
-      ts:new Date(e.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}),
-    }));
-    renderAuditLog();
+  try {
+    const res = await api('GET','/audit?limit=50');
+    if(res?.log) {
+      auditLog = res.log.map(e=>{
+        let ts = '';
+        try {
+          ts = new Date(e.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        } catch (err) {
+          ts = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        }
+        return {
+          type:e.action, email:e.actor_email, detail:e.detail, pct:e.completion_pct,
+          ts:ts
+        };
+      });
+      renderAuditLog();
+    }
+  } catch (err) {
+    console.error("refreshAudit error:", err);
   }
 }
 
