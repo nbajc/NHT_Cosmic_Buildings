@@ -95,6 +95,16 @@ def root():
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@app.get("/test-supabase")
+def test_supabase():
+    try:
+        sb = get_supabase()
+        res = sb.table("stream_checks").select("count", count="exact").limit(1).execute()
+        return {"ok": True, "details": "Successfully connected to Supabase!", "data": res.data}
+    except Exception as e:
+        import traceback
+        return {"ok": False, "error_type": type(e).__name__, "error_message": str(e), "traceback": traceback.format_exc()}
+
 # ── ACCESS ────────────────────────────────────────────────────────────────────
 
 @app.post("/access/check")
