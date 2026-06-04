@@ -292,7 +292,7 @@ footer{border-top:1px solid var(--border);padding:18px 40px;display:flex;justify
   <div class="audit-section">
     <div class="section-hdr">
       <span>── Audit Trail — All Activity (Supabase Live)</span>
-      <button class="clr-btn" onclick="clearAudit()">Clear Log</button>
+      <button class="clr-btn" id="clear-log-btn" style="display: none;" onclick="clearAudit()">Clear Log</button>
     </div>
     <div class="audit-log" id="audit-log">
       <div class="empty-note" id="audit-empty">No activity recorded yet.</div>
@@ -401,6 +401,8 @@ let pendingUsers = [];
 let approvedUsers = [];
 let popupTarget = null;
 let apiOnline = false;
+let syncInterval = null;
+let isSyncing = false;
 
 // ── API HELPERS ───────────────────────────────────────────────────────────────
 async function api(method, path, body=null) {
@@ -426,6 +428,21 @@ function setSyncStatus(state) {
   else if(state==='synced') { el.textContent='✓ Saved'; el.className='ub-sync synced'; }
   else if(state==='offline') { el.textContent='⚠ Offline'; el.className='ub-sync'; el.style.color='var(--crimson)'; }
   else { el.textContent='● Live'; el.className='ub-sync synced'; }
+}
+
+async function syncData() {
+  if (!apiOnline || !currentUser || isSyncing) return;
+  isSyncing = true;
+  setSyncStatus('syncing');
+  try {
+    await loadFromAPI();
+    renderAll();
+    setSyncStatus('synced');
+  } catch (e) {
+    setSyncStatus('offline');
+  } finally {
+    isSyncing = false;
+  }
 }
 
 // ── BOOT ──────────────────────────────────────────────────────────────────────
@@ -475,8 +492,18 @@ async function tryAccess() {
     document.getElementById('user-bar').style.display='flex';
     document.getElementById('main-content').style.display='flex';
     document.getElementById('ub-email').textContent=email;
+    
+    const clearLogBtn = document.getElementById('clear-log-btn');
+    if (clearLogBtn) {
+      clearLogBtn.style.display = ADMIN_EMAILS.includes(currentUser) ? 'inline-block' : 'none';
+    }
+
     await loadFromAPI();
     renderAll();
+    
+    if (!syncInterval) {
+      syncInterval = setInterval(syncData, 5000);
+    }
   }
 }
 
@@ -518,11 +545,18 @@ async function loadFromAPI() {
 
 function signOut() {
   currentUser=null; currentRole=null; checks={}; auditLog=[];
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+  }
+  const clearLogBtn = document.getElementById('clear-log-btn');
+  if (clearLogBtn) clearLogBtn.style.display = 'none';
   document.getElementById('access-gate').style.display='flex';
   document.getElementById('user-bar').style.display='none';
   document.getElementById('main-content').style.display='none';
   document.getElementById('gate-email').value='';
   document.getElementById('gate-err').textContent='';
+  renderAll();
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
@@ -588,7 +622,7 @@ function onCheck(e,domId,idx,text) {
   const pct=isChecked?checks[sid].pct:100;
   document.getElementById('popup-range').value=pct;
   document.getElementById('popup-pct').value=pct;
-  document.getElementById('btn-uncheck').style.display=isChecked?'block':'none';
+  document.getElementById('btn-uncheck').style.display=(isChecked && ADMIN_EMAILS.includes(currentUser))?'block':'none';
   document.getElementById('popup').style.display='flex';
 }
 

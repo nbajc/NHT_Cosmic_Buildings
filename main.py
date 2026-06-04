@@ -154,6 +154,7 @@ def check_stream(req: CheckStream, sb: Client = Depends(get_supabase)):
 
 @app.delete("/streams/{stream_id}")
 def uncheck_stream(stream_id: str, email: str, name: str, sb: Client = Depends(get_supabase)):
+    require_admin(email)
     stream = sb.table("stream_checks").select("stream_text").eq("stream_id", stream_id).execute()
     text = stream.data[0]["stream_text"] if stream.data else stream_id
     sb.table("stream_checks").delete().eq("stream_id", stream_id).execute()
